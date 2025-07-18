@@ -1,0 +1,486 @@
+-- Advanced Teleport System with Anti-Cheat Protection
+-- Author: cRaz0y
+-- Description: Slower, more natural teleport system for 3v3 and 5v5 modes
+
+-- ============================================
+-- TELEPORT CONFIGURATION VARIABLES
+-- ============================================
+
+-- UPDATED: Slower teleport variables
+local teleportDelay = 3 -- Configurable delay between teleports (1-10 seconds)
+local useWaypoints = true -- Use multiple waypoints for natural movement
+local randomizeMovement = true -- Add randomization to movement
+
+-- Additional safety and configuration variables
+local minDelay = 1 -- Minimum delay allowed
+local maxDelay = 10 -- Maximum delay allowed
+local waypointCount = 3 -- Number of waypoints to use for natural movement
+local randomOffset = 5 -- Random position offset for natural movement
+local lastTeleportTime = 0 -- Track last teleport time for safety
+local isAutoWinEnabled = false -- Master toggle for auto-win system
+
+-- Game mode detection
+currentGameMode = "unknown" -- Make this global so it can be accessed from functions
+local gameStartTime = 0
+
+-- UI Configuration (for interface integration)
+local uiConfig = {
+    teleportSpeed = 3,
+    useWaypoints = true,
+    randomizeMovement = true,
+    autoWinEnabled = false
+}
+
+-- ============================================
+-- UTILITY FUNCTIONS
+-- ============================================
+
+-- Get current time in milliseconds
+local function getCurrentTime()
+    return os.clock() * 1000
+end
+
+-- Generate random offset for natural movement
+local function getRandomOffset()
+    if not randomizeMovement then
+        return 0, 0, 0
+    end
+    
+    local offsetX = math.random(-randomOffset, randomOffset)
+    local offsetY = math.random(-randomOffset, randomOffset) 
+    local offsetZ = math.random(-randomOffset, randomOffset)
+    return offsetX, offsetY, offsetZ
+end
+
+-- Safe delay function with anti-cheat considerations
+local function safeDelay(seconds)
+    local delayMs = seconds * 1000
+    -- Add small random variation to avoid pattern detection
+    if randomizeMovement then
+        local variation = math.random(-200, 200) -- ±200ms variation
+        delayMs = delayMs + variation
+    end
+    
+    -- Ensure minimum delay
+    delayMs = math.max(delayMs, minDelay * 1000)
+    
+    -- Simple sleep implementation using os.clock()
+    local startTime = os.clock()
+    local targetTime = startTime + (delayMs / 1000)
+    
+    -- Busy wait (in real implementation, this would use game's sleep/wait function)
+    while os.clock() < targetTime do
+        -- Small delay to prevent 100% CPU usage
+        -- In actual game implementation, this would use proper sleep function
+    end
+end
+
+-- Check if enough time has passed since last teleport
+local function canTeleport()
+    local currentTime = getCurrentTime()
+    local timeSinceLastTeleport = currentTime - lastTeleportTime
+    local minInterval = teleportDelay * 1000
+    
+    -- Allow immediate teleport if this is the first time or sufficient time has passed
+    return lastTeleportTime == 0 or timeSinceLastTeleport >= minInterval
+end
+
+-- Update last teleport time
+local function updateTeleportTime()
+    lastTeleportTime = getCurrentTime()
+end
+
+-- Generate waypoints between start and end positions
+local function generateWaypoints(startX, startY, startZ, endX, endY, endZ)
+    local waypoints = {}
+    
+    if not useWaypoints then
+        -- Direct teleport if waypoints disabled
+        table.insert(waypoints, {endX, endY, endZ})
+        return waypoints
+    end
+    
+    -- Calculate waypoint positions
+    for i = 1, waypointCount do
+        local progress = i / (waypointCount + 1)
+        
+        local waypointX = startX + (endX - startX) * progress
+        local waypointY = startY + (endY - startY) * progress
+        local waypointZ = startZ + (endZ - startZ) * progress
+        
+        -- Add random offset for natural movement
+        local offsetX, offsetY, offsetZ = getRandomOffset()
+        waypointX = waypointX + offsetX
+        waypointY = waypointY + offsetY
+        waypointZ = waypointZ + offsetZ
+        
+        table.insert(waypoints, {waypointX, waypointY, waypointZ})
+    end
+    
+    -- Add final destination
+    local finalOffsetX, finalOffsetY, finalOffsetZ = getRandomOffset()
+    table.insert(waypoints, {endX + finalOffsetX, endY + finalOffsetY, endZ + finalOffsetZ})
+    
+    return waypoints
+end
+
+-- Perform teleport to specific coordinates (placeholder - replace with actual game API)
+local function teleportToPosition(x, y, z)
+    -- This would be replaced with the actual game's teleport function
+    -- Example: game.player.setPosition(x, y, z)
+    print(string.format("Teleporting to position: %.2f, %.2f, %.2f", x, y, z))
+    
+    -- Simulate teleport delay
+    safeDelay(0.1) -- Small delay between individual teleports
+end
+
+-- ============================================
+-- ENHANCED TELEPORT FUNCTIONS
+-- ============================================
+
+-- Enhanced 3v3 teleport function with waypoint system
+function doTeleport3v3()
+    -- Safety checks
+    if not isAutoWinEnabled then
+        print("Auto-win system is disabled")
+        return false
+    end
+    
+    if not canTeleport() then
+        print("Teleport on cooldown, waiting...")
+        return false
+    end
+    
+    if currentGameMode ~= "3v3" then
+        print("Not in 3v3 mode")
+        return false
+    end
+    
+    print("Starting enhanced 3v3 teleport sequence...")
+    
+    -- Get current player position (placeholder - replace with actual game API)
+    local currentX, currentY, currentZ = 0, 0, 0 -- game.player.getPosition()
+    
+    -- 3v3 target positions (these would be actual game coordinates)
+    local targetPositions = {
+        {100, 50, 25},  -- Position 1
+        {150, 75, 30},  -- Position 2
+        {200, 100, 35}, -- Position 3 (final win position)
+    }
+    
+    -- Teleport through each target position with waypoints
+    for i, targetPos in ipairs(targetPositions) do
+        local targetX, targetY, targetZ = targetPos[1], targetPos[2], targetPos[3]
+        
+        print(string.format("Moving to target %d of %d", i, #targetPositions))
+        
+        -- Generate waypoints for natural movement
+        local waypoints = generateWaypoints(currentX, currentY, currentZ, targetX, targetY, targetZ)
+        
+        -- Move through each waypoint
+        for j, waypoint in ipairs(waypoints) do
+            local wpX, wpY, wpZ = waypoint[1], waypoint[2], waypoint[3]
+            
+            print(string.format("Waypoint %d/%d", j, #waypoints))
+            teleportToPosition(wpX, wpY, wpZ)
+            
+            -- Delay between waypoints (shorter than main delay)
+            if j < #waypoints then
+                safeDelay(teleportDelay * 0.3) -- 30% of main delay between waypoints
+            end
+        end
+        
+        -- Update current position
+        currentX, currentY, currentZ = targetX, targetY, targetZ
+        
+        -- Delay between major positions
+        if i < #targetPositions then
+            safeDelay(teleportDelay)
+        end
+    end
+    
+    updateTeleportTime()
+    print("3v3 teleport sequence completed successfully")
+    return true
+end
+
+-- Enhanced 5v5 teleport function with waypoint system
+function doTeleport5v5()
+    -- Safety checks
+    if not isAutoWinEnabled then
+        print("Auto-win system is disabled")
+        return false
+    end
+    
+    if not canTeleport() then
+        print("Teleport on cooldown, waiting...")
+        return false
+    end
+    
+    if currentGameMode ~= "5v5" then
+        print("Not in 5v5 mode")
+        return false
+    end
+    
+    print("Starting enhanced 5v5 teleport sequence...")
+    
+    -- Get current player position (placeholder - replace with actual game API)
+    local currentX, currentY, currentZ = 0, 0, 0 -- game.player.getPosition()
+    
+    -- 5v5 target positions (these would be actual game coordinates)
+    local targetPositions = {
+        {50, 25, 10},   -- Position 1
+        {100, 50, 20},  -- Position 2
+        {150, 75, 30},  -- Position 3
+        {200, 100, 40}, -- Position 4
+        {250, 125, 50}, -- Position 5 (final win position)
+    }
+    
+    -- Teleport through each target position with waypoints
+    for i, targetPos in ipairs(targetPositions) do
+        local targetX, targetY, targetZ = targetPos[1], targetPos[2], targetPos[3]
+        
+        print(string.format("Moving to target %d of %d", i, #targetPositions))
+        
+        -- Generate waypoints for natural movement
+        local waypoints = generateWaypoints(currentX, currentY, currentZ, targetX, targetY, targetZ)
+        
+        -- Move through each waypoint
+        for j, waypoint in ipairs(waypoints) do
+            local wpX, wpY, wpZ = waypoint[1], waypoint[2], waypoint[3]
+            
+            print(string.format("Waypoint %d/%d", j, #waypoints))
+            teleportToPosition(wpX, wpY, wpZ)
+            
+            -- Delay between waypoints (shorter than main delay)
+            if j < #waypoints then
+                safeDelay(teleportDelay * 0.3) -- 30% of main delay between waypoints
+            end
+        end
+        
+        -- Update current position
+        currentX, currentY, currentZ = targetX, targetY, targetZ
+        
+        -- Delay between major positions (longer for 5v5 due to more complexity)
+        if i < #targetPositions then
+            safeDelay(teleportDelay * 1.2) -- 20% longer delay for 5v5
+        end
+    end
+    
+    updateTeleportTime()
+    print("5v5 teleport sequence completed successfully")
+    return true
+end
+
+-- ============================================
+-- UI CONTROL FUNCTIONS
+-- ============================================
+
+-- Update teleport delay from UI
+function setTeleportDelay(newDelay)
+    if newDelay >= minDelay and newDelay <= maxDelay then
+        teleportDelay = newDelay
+        uiConfig.teleportSpeed = newDelay
+        print(string.format("Teleport delay set to %d seconds", newDelay))
+        return true
+    else
+        print(string.format("Invalid delay. Must be between %d and %d seconds", minDelay, maxDelay))
+        return false
+    end
+end
+
+-- Toggle waypoint usage
+function setUseWaypoints(enabled)
+    useWaypoints = enabled
+    uiConfig.useWaypoints = enabled
+    print(string.format("Waypoint usage %s", enabled and "enabled" or "disabled"))
+end
+
+-- Toggle movement randomization
+function setRandomizeMovement(enabled)
+    randomizeMovement = enabled
+    uiConfig.randomizeMovement = enabled
+    print(string.format("Movement randomization %s", enabled and "enabled" or "disabled"))
+end
+
+-- Toggle auto-win system
+function setAutoWinEnabled(enabled)
+    isAutoWinEnabled = enabled
+    uiConfig.autoWinEnabled = enabled
+    print(string.format("Auto-win system %s", enabled and "enabled" or "disabled"))
+end
+
+-- Get current configuration for UI display
+function getConfigurationStatus()
+    return {
+        teleportDelay = teleportDelay,
+        useWaypoints = useWaypoints,
+        randomizeMovement = randomizeMovement,
+        autoWinEnabled = isAutoWinEnabled,
+        lastTeleportTime = lastTeleportTime,
+        currentGameMode = currentGameMode
+    }
+end
+
+-- ============================================
+-- CONFIGURATION SAVE/LOAD SYSTEM
+-- ============================================
+
+-- Save configuration to file
+function saveConfig()
+    local config = {
+        teleportDelay = teleportDelay,
+        useWaypoints = useWaypoints,
+        randomizeMovement = randomizeMovement,
+        autoWinEnabled = isAutoWinEnabled,
+        waypointCount = waypointCount,
+        randomOffset = randomOffset
+    }
+    
+    -- Convert config to string format (simple key=value format)
+    local configString = ""
+    for key, value in pairs(config) do
+        configString = configString .. key .. "=" .. tostring(value) .. "\n"
+    end
+    
+    -- Save to file (placeholder - replace with actual file I/O)
+    -- In actual implementation, this would use proper file writing
+    print("Configuration saved:")
+    print(configString)
+    
+    return true
+end
+
+-- Load configuration from file
+function loadConfig()
+    -- Placeholder configuration loading
+    -- In actual implementation, this would read from a file
+    local defaultConfig = {
+        teleportDelay = 3,
+        useWaypoints = true,
+        randomizeMovement = true,
+        autoWinEnabled = false,
+        waypointCount = 3,
+        randomOffset = 5
+    }
+    
+    -- Apply loaded configuration
+    teleportDelay = defaultConfig.teleportDelay
+    useWaypoints = defaultConfig.useWaypoints
+    randomizeMovement = defaultConfig.randomizeMovement
+    isAutoWinEnabled = defaultConfig.autoWinEnabled
+    waypointCount = defaultConfig.waypointCount
+    randomOffset = defaultConfig.randomOffset
+    
+    -- Update UI config
+    uiConfig.teleportSpeed = teleportDelay
+    uiConfig.useWaypoints = useWaypoints
+    uiConfig.randomizeMovement = randomizeMovement
+    uiConfig.autoWinEnabled = isAutoWinEnabled
+    
+    print("Configuration loaded successfully")
+    return true
+end
+
+-- ============================================
+-- GAME MODE DETECTION AND MANAGEMENT
+-- ============================================
+
+-- Detect current game mode (placeholder - replace with actual game API)
+function detectGameMode()
+    -- This would be replaced with actual game mode detection
+    -- Example: currentGameMode = game.getCurrentMode()
+    
+    -- For demonstration, return a placeholder
+    return "unknown"
+end
+
+-- Set game mode manually (for testing or manual override)
+function setGameMode(mode)
+    if mode == "3v3" or mode == "5v5" or mode == "unknown" then
+        currentGameMode = mode
+        print(string.format("Game mode set to: %s", mode))
+        return true
+    else
+        print("Invalid game mode. Use '3v3', '5v5', or 'unknown'")
+        return false
+    end
+end
+
+-- ============================================
+-- INITIALIZATION AND MAIN FUNCTIONS
+-- ============================================
+
+-- Initialize the teleport system
+function initializeTeleportSystem()
+    print("Initializing Enhanced Teleport System...")
+    
+    -- Load saved configuration
+    loadConfig()
+    
+    -- Detect current game mode
+    currentGameMode = detectGameMode()
+    
+    -- Initialize random seed
+    math.randomseed(os.time())
+    
+    print("Enhanced Teleport System initialized successfully")
+    print(string.format("Current settings - Delay: %ds, Waypoints: %s, Randomization: %s", 
+          teleportDelay, 
+          useWaypoints and "ON" or "OFF", 
+          randomizeMovement and "ON" or "OFF"))
+end
+
+-- Main teleport function that determines which mode to use
+function performAutoWinTeleport()
+    if not isAutoWinEnabled then
+        print("Auto-win system is disabled")
+        return false
+    end
+    
+    -- Detect current game mode
+    currentGameMode = detectGameMode()
+    
+    if currentGameMode == "3v3" then
+        return doTeleport3v3()
+    elseif currentGameMode == "5v5" then
+        return doTeleport5v5()
+    else
+        print("Unknown or unsupported game mode: " .. currentGameMode)
+        return false
+    end
+end
+
+-- Emergency stop function for safety
+function emergencyStop()
+    isAutoWinEnabled = false
+    print("EMERGENCY STOP: Auto-win system disabled")
+end
+
+-- Status check function
+function getSystemStatus()
+    local status = {
+        systemEnabled = isAutoWinEnabled,
+        gameMode = currentGameMode,
+        teleportDelay = teleportDelay,
+        useWaypoints = useWaypoints,
+        randomizeMovement = randomizeMovement,
+        lastTeleportTime = lastTeleportTime,
+        timeSinceLastTeleport = getCurrentTime() - lastTeleportTime
+    }
+    
+    return status
+end
+
+-- ============================================
+-- AUTO-INITIALIZATION
+-- ============================================
+
+-- Initialize the system when the script is loaded
+initializeTeleportSystem()
+
+print("Enhanced Teleport System loaded and ready!")
+print("Use performAutoWinTeleport() to start auto-win sequence")
+print("Use setTeleportDelay(seconds) to adjust speed")
+print("Use setAutoWinEnabled(true/false) to enable/disable")
+print("Use emergencyStop() for immediate shutdown")
